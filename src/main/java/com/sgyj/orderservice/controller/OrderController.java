@@ -1,10 +1,15 @@
 package com.sgyj.orderservice.controller;
 
+import static com.sgyj.orderservice.utils.ApiUtil.success;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.sgyj.orderservice.dto.OrderDto;
 import com.sgyj.orderservice.entity.Order;
 import com.sgyj.orderservice.form.RequestOrder;
 import com.sgyj.orderservice.form.ResponseOrder;
+import com.sgyj.orderservice.service.KafkaProducer;
 import com.sgyj.orderservice.service.OrderService;
+import com.sgyj.orderservice.utils.ApiUtil.ApiResult;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -23,29 +28,25 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class OrderController {
 
-    private final Environment environment;
     private final OrderService orderService;
-
-    @GetMapping("/health_check")
-    private String status() {
-        return String.format( "It's Working in Order Service on PORT %s", environment.getProperty("local.server.port") );
-    }
+    private final KafkaProducer kafkaProducer;
 
     @PostMapping("/account-id/{accountId}/orders")
-    public ResponseEntity<ResponseOrder> createOrder( @RequestBody RequestOrder requestOrder, @PathVariable String accountId ) {
+    public ApiResult<ResponseOrder> createOrder( @RequestBody RequestOrder requestOrder, @PathVariable String accountId ) throws JsonProcessingException {
         OrderDto orderDto = OrderDto.from(requestOrder);
         orderDto.setAccountId( accountId );
         OrderDto savedOrder = orderService.createOrder( orderDto );
         ResponseOrder responseOrder = ResponseOrder.from(savedOrder);
-        return ResponseEntity.status( HttpStatus.CREATED ).body( responseOrder );
+        kafkaProducer.send("example-order-topic", orderDto);
+        return success( responseOrder, HttpStatus.CREATED );
     }
 
     @GetMapping("/user-id/{userId}/orders")
-    public ResponseEntity<List<ResponseOrder>> getOrders( @PathVariable String userId) {
+    public ApiResult<List<ResponseOrder>> getOrders( @PathVariable String userId) {
         Iterable<Order> orderList = orderService.getOrderByUserId( userId );
         List<ResponseOrder> result = new ArrayList<>();
         orderList.forEach( o -> result.add( ResponseOrder.from(o) ));
-        return ResponseEntity.ok(result);
+        return success(result);
     }
 
 }
