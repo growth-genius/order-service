@@ -12,12 +12,12 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class KafkaProducer {
-    private KafkaTemplate<String, String> kafkaTemplate;
-    private ObjectMapper objectMapper;
+
+    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final ObjectMapper objectMapper;
 
     public OrderDto send(String kafkaTopic, OrderDto orderDto) throws JsonProcessingException {
         String jsonString = objectMapper.writeValueAsString(orderDto);
-
         kafkaTemplate.send(kafkaTopic, jsonString);
         log.info("Kafka Producer send data from the Order microservice : " + orderDto);
         return orderDto;

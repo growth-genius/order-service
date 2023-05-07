@@ -8,10 +8,12 @@ import com.sgyj.orderservice.entity.Order;
 import com.sgyj.orderservice.form.RequestOrder;
 import com.sgyj.orderservice.form.ResponseOrder;
 import com.sgyj.orderservice.service.KafkaProducer;
+import com.sgyj.orderservice.service.OrderProducer;
 import com.sgyj.orderservice.service.OrderService;
 import com.sgyj.orderservice.utils.ApiUtil.ApiResult;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
@@ -30,14 +32,19 @@ public class OrderController {
 
     private final OrderService orderService;
     private final KafkaProducer kafkaProducer;
+    private final OrderProducer orderProducer;
 
     @PostMapping("/account-id/{accountId}/orders")
     public ApiResult<ResponseOrder> createOrder( @RequestBody RequestOrder requestOrder, @PathVariable String accountId ) throws JsonProcessingException {
         OrderDto orderDto = OrderDto.from(requestOrder);
         orderDto.setAccountId( accountId );
-        OrderDto savedOrder = orderService.createOrder( orderDto );
-        ResponseOrder responseOrder = ResponseOrder.from(savedOrder);
+        /*OrderDto savedOrder = orderService.createOrder( orderDto );
+        ResponseOrder responseOrder = ResponseOrder.from(savedOrder);*/
+        orderDto.setOrderId(UUID.randomUUID().toString());
+        orderDto.setTotalPrice(requestOrder.getQty() * requestOrder.getUnitPrice());
+        ResponseOrder responseOrder = ResponseOrder.from(orderDto);
         kafkaProducer.send("example-order-topic", orderDto);
+        orderProducer.send("orders", orderDto);
         return success( responseOrder, HttpStatus.CREATED );
     }
 
